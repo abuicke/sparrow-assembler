@@ -1,0 +1,47 @@
+# Leiningen build output and artifacts
+/target/
+/classes/
+*.jar
+*.class
+pom.xml
+pom.xml.asc
+
+# Leiningen state and history
+.lein-env
+.lein-repl-history
+.lein-plugins/
+.lein-failures
+
+# Clojure CLI (deps.edn)
+.cpcache/
+
+# Boot
+.boot-env
+
+# REPL state
+.nrepl-port
+.nrepl-history
+.repl-history
+
+# Clojure LSP & Linters
+.lsp/.cache/
+.clojure-lsp/.cache/
+.clj-kondo/.cache/
+
+# IDEs and Editors
+.idea/
+*.iml
+*.iws
+.vscode/
+.calva/
+*.swp
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
