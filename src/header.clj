@@ -2,8 +2,26 @@
   (:import [java.nio ByteBuffer ByteOrder]
            [java.io FileOutputStream]))
 
+;;
+;; typedef struct {
+;;     unsigned char e_ident[16]; /* ELF identification bytes (Magic, Class, Endianness, etc.) */
+;;     Elf64_Half    e_type;      /* Object file type (e.g., ET_REL, ET_EXEC, ET_DYN) */
+;;     Elf64_Half    e_machine;   /* Target architecture / Machine type */
+;;     Elf64_Word    e_version;   /* Object file version */
+;;     Elf64_Addr    e_entry;     /* Entry point virtual address */
+;;     Elf64_Off     e_phoff;     /* Program header table file offset */
+;;     Elf64_Off     e_shoff;     /* Section header table file offset */
+;;     Elf64_Word    e_flags;     /* Processor-specific flags */
+;;     Elf64_Half    e_ehsize;    /* ELF header size in bytes */
+;;     Elf64_Half    e_phentsize; /* Program header table entry size */
+;;     Elf64_Half    e_phnum;     /* Number of program header entries */
+;;     Elf64_Half    e_shentsize; /* Section header table entry size */
+;;     Elf64_Half    e_shnum;     /* Number of section header entries */
+;;     Elf64_Half    e_shstrndx;  /* Section header string table index */
+;; } Elf64_Ehdr;
+;; 
 (defn build-minimal-elf []
-  ;; The exact size of our file: 
+  ;; The exact size of the file: 
   ;; 64 (ELF Header) + 56 (Program Header) + 12 (Machine Code) = 132 bytes
   (let [file-size 132
         buffer (ByteBuffer/allocate file-size)]
@@ -14,8 +32,12 @@
     ;; ==========================================
     ;; 1. THE ELF HEADER (64 Bytes)
     ;; ==========================================
+    ;;
+    ;; = = = = = = = = = = = = = = = = = = = = =
+    ;; ELF Identification, e_ident[16]
+    ;;
     ;; Magic Number (0x7F E L F)
-    (.put buffer (unchecked-byte 0x7F))
+    (.put buffer (byte 0x7F))
     (.put buffer (byte 0x45))
     (.put buffer (byte 0x4C))
     (.put buffer (byte 0x46))
@@ -26,25 +48,26 @@
     (.put buffer (byte 0))    ; Target OS ABI (System V)
     
     (.position buffer 16)     ; Skip 8 bytes of padding
+    ;; = = = = = = = = = = = = = = = = = = = = =
     
-    (.putShort buffer 2)      ; Object Type: Executable (2)
-    (.putShort buffer 0x3E)   ; Machine: x86-64 (62)
-    (.putInt buffer 1)        ; Version 1
+    (.putShort buffer 2)      ; Object Type: Executable (2), e_type
+    (.putShort buffer 0x3E)   ; Machine: x86-64 (62), e_machine
+    (.putInt buffer 1)        ; Version 1, e_version
     
-    ;; Entry Point: Standard memory start (0x400000) + 120 bytes of headers
+    ;; Entry Point: Standard memory start (0x400000) + 120 bytes of headers, e_entry
     (.putLong buffer 0x400078)
     
-    (.putLong buffer 64)      ; Program Header starts immediately after this 64-byte header
-    (.putLong buffer 0)       ; We are skipping Section Headers entirely (not needed to run)
-    (.putInt buffer 0)        ; Flags
+    (.putLong buffer 64)      ; Program Header starts immediately after this 64-byte header, e_phoff
+    (.putLong buffer 0)       ; We are skipping Section Headers entirely (not needed to run), e_shoff
+    (.putInt buffer 0)        ; Flags, e_flags
     
-    (.putShort buffer 64)     ; Size of this ELF Header
-    (.putShort buffer 56)     ; Size of one Program Header
-    (.putShort buffer 1)      ; How many Program Headers? (Just 1)
+    (.putShort buffer 64)     ; Size of this ELF Header, e_ehsize
+    (.putShort buffer 56)     ; Size of one Program Header, e_phentsize
+    (.putShort buffer 1)      ; How many Program Headers? (Just 1), e_phnum
     
-    (.putShort buffer 64)     ; Size of Section Header (Dummy value)
-    (.putShort buffer 0)      ; How many Section Headers? (0)
-    (.putShort buffer 0)      ; Section Names Index
+    (.putShort buffer 64)     ; Size of Section Header, e_shentsize
+    (.putShort buffer 0)      ; How many Section Headers? (0), e_shnum
+    (.putShort buffer 0)      ; Section Names Index, e_shstrndx
 
     ;; ==========================================
     ;; 2. THE PROGRAM HEADER (56 Bytes)
