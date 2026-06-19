@@ -20,6 +20,19 @@
 ;;     Elf64_Half    e_shstrndx;  /* Section header string table index */
 ;; } Elf64_Ehdr;
 ;; 
+;; 
+;; typedef struct
+;; {
+;;   Elf64_Word    p_type;    /* Segment type */
+;;   Elf64_Word    p_flags;   /* Segment flags */
+;;   Elf64_Off     p_offset;  /* Segment file offset */
+;;   Elf64_Addr    p_vaddr;   /* Segment virtual address */
+;;   Elf64_Addr    p_paddr;   /* Segment physical address */
+;;   Elf64_Xword   p_filesz;  /* Segment size in file */
+;;   Elf64_Xword   p_memsz;   /* Segment size in memory */
+;;   Elf64_Xword   p_align;   /* Segment alignment */
+;; } Elf64_Phdr;
+;; 
 (defn build-minimal-elf []
   ;; The exact size of the file: 
   ;; 64 (ELF Header) + 56 (Program Header) + 12 (Machine Code) = 132 bytes
@@ -54,8 +67,7 @@
     (.putShort buffer 0x3E)   ; Machine: x86-64 (62), e_machine
     (.putInt buffer 1)        ; Version 1, e_version
     
-    ;; Entry Point: Standard memory start (0x400000) + 120 bytes of headers, e_entry
-    (.putLong buffer 0x400078)
+    (.putLong buffer 0x400078); Entry Point: 0x400000 (Linux base address) + 120 bytes of headers, e_entry
     
     (.putLong buffer 64)      ; Program Header starts immediately after this 64-byte header, e_phoff
     (.putLong buffer 0)       ; We are skipping Section Headers entirely (not needed to run), e_shoff
@@ -72,16 +84,16 @@
     ;; ==========================================
     ;; 2. THE PROGRAM HEADER (56 Bytes)
     ;; ==========================================
-    (.putInt buffer 1)        ; Segment Type: PT_LOAD (1) - Load into memory
-    (.putInt buffer 5)        ; Permissions: Read (4) + Execute (1) = 5
-    (.putLong buffer 0)       ; Offset in file to load from (0 = load the whole file)
+    (.putInt buffer 1)        ; Segment Type: PT_LOAD (1) - Load into memory, p_type
+    (.putInt buffer 5)        ; Permissions: Read (4) + Execute (1) = 5, p_flags
+    (.putLong buffer 0)       ; Offset in file to load from (0 = load the whole file), p_offset
     
-    (.putLong buffer 0x400000); Virtual Address in RAM
-    (.putLong buffer 0x400000); Physical Address (ignored, but must match)
+    (.putLong buffer 0x400000); Virtual Address in RAM, p_vaddr
+    (.putLong buffer 0x400000); Physical Address (ignored, but must match), p_paddr
     
-    (.putLong buffer file-size); How many bytes to load from file (132)
-    (.putLong buffer file-size); How much RAM to allocate (132)
-    (.putLong buffer 0x1000)  ; Memory Alignment
+    (.putLong buffer file-size); How many bytes to load from file (132), p_filesz
+    (.putLong buffer file-size); How much RAM to allocate (132), p_memsz
+    (.putLong buffer 0x1000)  ; Memory Alignment, p_align
 
     ;; ==========================================
     ;; 3. THE MACHINE CODE PAYLOAD (12 Bytes)
