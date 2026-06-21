@@ -35,8 +35,8 @@
 ;; 
 (defn build-minimal-elf []
   ;; The exact size of the file: 
-  ;; 64 (ELF Header) + 56 (Program Header) + 12 (Machine Code) = 132 bytes
-  (let [file-size 132
+  ;; 64 (ELF Header) + 56 (Program Header) + 44 (Machine Code) = 164 bytes
+  (let [file-size 164
         buffer (ByteBuffer/allocate file-size)]
     
     ;; Linux x86-64 requires Little Endian byte order
@@ -91,30 +91,71 @@
     (.putLong buffer 0x400000); Virtual Address in RAM, p_vaddr
     (.putLong buffer 0x400000); Physical Address (ignored, but must match), p_paddr
     
-    (.putLong buffer file-size); How many bytes to load from file (132), p_filesz
-    (.putLong buffer file-size); How much RAM to allocate (132), p_memsz
+    (.putLong buffer file-size); How many bytes to load from file (164), p_filesz
+    (.putLong buffer file-size); How much RAM to allocate (164), p_memsz
     (.putLong buffer 0x1000)  ; Memory Alignment, p_align
 
     ;; ==========================================
-    ;; 3. THE MACHINE CODE PAYLOAD (12 Bytes)
+    ;; 3. THE MACHINE CODE PAYLOAD (44 Bytes)
     ;; ==========================================
-    ;; Instruction 1: mov rax, 60 (Syscall number for sys_exit)
-    (.put buffer (unchecked-byte 0xB8)) ; Opcode for 'mov eax, imm32'
-    (.putInt buffer 60)                 ; The number 60 (4 bytes)
     
-    ;; Instruction 2: mov rdi, 0 (Exit code 0)
-    (.put buffer (unchecked-byte 0xBF)) ; Opcode for 'mov edi, imm32'
-    (.putInt buffer 0)                  ; The number 0 (4 bytes)
+    ;; Instruction 1: mov eax, 0x0A00 (Initialize with newline '\n' in the second byte)
+    (.put buffer (unchecked-byte 0xB8)) 
+    (.putInt buffer 0x0A00)
     
-    ;; Instruction 3: syscall (Trigger the kernel)
-    (.put buffer (unchecked-byte 0x0F)) ; Opcode part 1
-    (.put buffer (unchecked-byte 0x05)) ; Opcode part 2
+    ;; Instruction 2: add al, 2 (Add 2 to the lowest byte)
+    (.put buffer (unchecked-byte 0x04))
+    (.put buffer (unchecked-byte 0x02))
+
+    ;; Instruction 3: add al, 3 (Add 3 to the lowest byte)
+    (.put buffer (unchecked-byte 0x04))
+    (.put buffer (unchecked-byte 0x03))
+
+    ;; Instruction 4: add al, 48 (Convert the sum '5' to ASCII)
+    (.put buffer (unchecked-byte 0x04))
+    (.put buffer (unchecked-byte 0x30))
+
+    ;; Instruction 5: push rax (Push result to stack to get a memory pointer for sys_write)
+    (.put buffer (unchecked-byte 0x50))
+
+    ;; Instruction 6: mov edi, 1 (File descriptor 1: stdout)
+    (.put buffer (unchecked-byte 0xBF))
+    (.putInt buffer 1)
+
+    ;; Instruction 7: mov rsi, rsp (Set string buffer pointer to the top of the stack)
+    (.put buffer (unchecked-byte 0x48))
+    (.put buffer (unchecked-byte 0x89))
+    (.put buffer (unchecked-byte 0xE6))
+
+    ;; Instruction 8: mov edx, 2 (String length: '5' and '\n' = 2 bytes)
+    (.put buffer (unchecked-byte 0xBA))
+    (.putInt buffer 2)
+
+    ;; Instruction 9: mov eax, 1 (Syscall number for sys_write)
+    (.put buffer (unchecked-byte 0xB8))
+    (.putInt buffer 1)
+
+    ;; Instruction 10: syscall (Trigger the kernel to print)
+    (.put buffer (unchecked-byte 0x0F))
+    (.put buffer (unchecked-byte 0x05))
+
+    ;; Instruction 11: mov edi, 0 (Exit code 0)
+    (.put buffer (unchecked-byte 0xBF))
+    (.putInt buffer 0)
+
+    ;; Instruction 12: mov eax, 60 (Syscall number for sys_exit)
+    (.put buffer (unchecked-byte 0xB8))
+    (.putInt buffer 60)
+
+    ;; Instruction 13: syscall (Trigger the kernel to exit)
+    (.put buffer (unchecked-byte 0x0F))
+    (.put buffer (unchecked-byte 0x05))
 
     ;; Return the raw bytes
     (.array buffer)))
 
 (defn -main []
-  (let [filename "minimal_exit"]
+  (let [filename "math_elf"]
     (println "Compiling minimal ELF binary...")
     (with-open [out (FileOutputStream. filename)]
       (.write out (build-minimal-elf)))
